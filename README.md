@@ -18,7 +18,7 @@
 <!-- most used languages -->
 <p><img align="center" src="https://github-readme-stats.vercel.app/api/top-langs/?username=raunow&layout=compact" alt="raunow" /></p>
 
-<p align="middle">
+<p align="left">
 <a href="https://linkedin.com/in/steffbp" target="blank"><img align="center" src="https://cdn.jsdelivr.net/npm/simple-icons@3.0.1/icons/linkedin.svg" alt="steffbp" height="30" width="40" /></a>
 <a href="https://fb.com/steff.bpoulsen" target="blank"><img align="center" src="https://cdn.jsdelivr.net/npm/simple-icons@3.0.1/icons/facebook.svg" alt="steff.bpoulsen" height="30" width="40" /></a>
 <a href="https://instagram.com/steff.bpoulsen" target="blank"><img align="center" src="https://cdn.jsdelivr.net/npm/simple-icons@3.0.1/icons/instagram.svg" alt="steff.bpoulsen" height="30" width="40" /></a>
