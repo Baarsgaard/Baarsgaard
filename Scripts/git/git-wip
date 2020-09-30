@@ -1,0 +1,15 @@
+#!/bin/bash
+echo "Replacing CI/wip"
+
+#Either use input value or use current branch
+branch="${1:-$(git branch --show-current)}"
+
+#Git commands for force pushing current branch to CI/wip
+git checkout CI/wip
+git fetch origin $branch
+git reset --hard FETCH_HEAD
+git clean -df
+git push -f
+git checkout $branch
+
+echo "CI/wip replaced with ${branch}"
