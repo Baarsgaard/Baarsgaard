@@ -1,4 +1,4 @@
-﻿$filePath = [Environment]::GetFolderPath("Desktop") + "\monitors.txt"
+$filePath = [Environment]::GetFolderPath("Desktop") + "\monitors.txt"
 
 if (-Not(Test-Path -Path $filePath -PathType Leaf)) {
   try {
@@ -17,15 +17,16 @@ if (-Not(Test-Path -Path $filePath -PathType Leaf)) {
 
 
 $urls = @();
-Get-Content $filePath | foreach { 
-  if (([string]$_).StartsWith('#') -or ([string]$_).StartsWith('//')) { continue }
-  $urls += , $_.Replace(" ", "").split(',') 
+Get-Content $filePath | foreach {
+  if (-Not ($_.StartsWith('#') -Or $_.StartsWith('//'))) {
+    $urls += , $_.Replace(" ", "").split(',');
+  }
 }
 
 $monitor_count = (Get-CimInstance Win32_VideoController).Count
 
 For ($i=0; $i -lt $monitor_count; $i++) {
-  if (!$urls[$i] -is [string]) { continue }
+  if (-not $urls[$i] -is [string]) { continue }
 
   foreach ($url in $urls[$i]) {
     Start-Process chrome.exe -ArgumentList ${url},"--start-maximized","--user-data-dir=c:\monitor$i"
