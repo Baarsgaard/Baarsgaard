@@ -1,0 +1,15 @@
+[http]
+	sslverify = true
+[oh-my-zsh]
+	hide-status = 1
+	hide-dirty = 1
+[push]
+	default = current
+[branch]
+	autosetuprebase = always
+[pull]
+	rebase = true
+[core]
+	autocrlf = input
+	fileMode = false
+	editor = vim
