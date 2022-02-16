@@ -2,7 +2,7 @@
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
-export ZSH="/home/spu/.oh-my-zsh"
+export ZSH="/home/ste/.oh-my-zsh"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
@@ -10,36 +10,11 @@ export ZSH="/home/spu/.oh-my-zsh"
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
 ZSH_THEME="robbyrussell"
 
-# Set list of themes to pick from when loading at random
-# Setting this variable when ZSH_THEME=random will cause zsh to load
-# a theme from this variable instead of looking in $ZSH/themes/
-# If set to an empty array, this variable will have no effect.
-# ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
-
-# Uncomment the following line to use case-sensitive completion.
-# CASE_SENSITIVE="true"
-
-# Uncomment the following line to use hyphen-insensitive completion.
-# Case-sensitive completion must be off. _ and - will be interchangeable.
-# HYPHEN_INSENSITIVE="true"
-
-# Uncomment the following line to disable bi-weekly auto-update checks.
-# DISABLE_AUTO_UPDATE="true"
-
 # Uncomment the following line to automatically update without prompting.
-# DISABLE_UPDATE_PROMPT="true"
-
-# Uncomment the following line to change how often to auto-update (in days).
-# export UPDATE_ZSH_DAYS=13
+DISABLE_UPDATE_PROMPT="true"
 
 # Uncomment the following line if pasting URLs and other text is messed up.
 # DISABLE_MAGIC_FUNCTIONS="true"
-
-# Uncomment the following line to disable colors in ls.
-# DISABLE_LS_COLORS="true"
-
-# Uncomment the following line to disable auto-setting terminal title.
-# DISABLE_AUTO_TITLE="true"
 
 # Uncomment the following line to enable command auto-correction.
 # ENABLE_CORRECTION="true"
@@ -56,82 +31,89 @@ ZSH_THEME="robbyrussell"
 
 # Uncomment the following line if you want to change the command execution time
 # stamp shown in the history command output.
-# You can set one of the optional three formats:
-# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
-# or set a custom format using the strftime function format specifications,
-# see 'man strftime' for details.
-# HIST_STAMPS="mm/dd/yyyy"
+HIST_STAMPS="yyyy-mm-dd"
 
-# Would you like to use another custom folder than $ZSH/custom?
-# ZSH_CUSTOM=/path/to/new-custom-folder
-
-# Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
-# Add wisely, as too many plugins slow down shell startup.
-plugins=(git wd)
+plugins=(
+  fzf-tab
+  fzf-zsh-plugin
+  git
+  wd
+  terraform
+  zsh-autosuggestions
+)
 
 source $ZSH/oh-my-zsh.sh
 
-# Source profile, normal/advanced
-# source ~/.profile
-# [[ -e ~/.profile ]] && emulate sh -c 'source ~/.profile'
-
-# User configuration
-
-# export MANPATH="/usr/local/man:$MANPATH"
-
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
-
-# Preferred editor for local and remote sessions
-# if [[ -n $SSH_CONNECTION ]]; then
-#   export EDITOR='vim'
-# else
-#   export EDITOR='mvim'
-# fi
-
-# Compilation flags
-# export ARCHFLAGS="-arch x86_64"
-
-# Set personal aliases, overriding those provided by oh-my-zsh libs,
-# plugins, and themes. Aliases can be placed here, though oh-my-zsh
-# users are encouraged to define aliases within the ZSH_CUSTOM folder.
-# For a full list of active aliases, run `alias`.
 #
-# Example aliases
-# alias zshconfig="mate ~/.zshrc"
-# alias ohmyzsh="mate ~/.oh-my-zsh"
-export PATH="$PATH:/opt/mssql-tools/bin"
-export PATH=/opt/aws:$PATH
+# User configuration
+#
 
 # Custom Prompt
 PROMPT='%{$fg[cyan]%}%c%{$reset_color%} $(git_prompt_info)'
 PROMPT+="
 %(?:%{$fg[green]%}➜ :%{$fg[red]%}➜ )%{$reset_color%}"
 
-# Standard ls aliases
-alias la='ls -A'
 
 # custom alias
 alias ap='ansible-playbook'
 alias al='ansible-lint'
 alias ai='ansible-galaxy init'
-alias tf='terraform'
+#alias tf='terraform'
+alias la='ls -A'
 alias ll='ls -al --file-type'
-alias l='ls -CFl'
-alias grep='grep -n --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
+alias l='ls -CF1'
+alias grep='grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
+# --line-number
+alias gcm='git commit -m'
+alias explorer='explorer.exe'
 
 set_pass() {
   IFS= read -rs PASS < /dev/tty
 }
 
-projects() {
-  ls -ld /opt/projects/*/*
+_wd_path() {
+  if [ "$(grep -c "^$2:" ~/.warprc)" -eq 1 ]; then
+    wd_path="$(wd path "$2")"
+  else
+    wd_path="$2"
+  fi
+
+  if [[ "$1" =~ '^.*\.exe' ]]; then
+    wd_path="$(wslpath -w "$wd_path")"
+  fi
+
+  $1 "$wd_path"
 }
-cwd() {
-  code $(wd path $1)
+
+cw() {
+  _wd_path 'code' "${1:-.}"
+}
+
+ew() {
+  _wd_path 'explorer.exe' "${1:-.}"
+}
+
+search() {
+  QUERY="$(echo "$@" | tr ' ' '+')"
+  powershell.exe -c "start('https://google.com/search?q=$QUERY')"
+}
+
+export FZF_DEFAULT_COMMAND="fd --type file --follow --color=always"
+export FZF_DEFAULT_OPTS="--ansi"
+
+fd() {
+  local preview="git diff $@ --color=always -- {}"
+  if [[ $* == *-a* ]]; then
+    preview="bat --color=always --style=changes,numbers {}"
+  fi
+  local prefix="$(git rev-parse --show-toplevel)/"
+  local execute="ctrl-c:execute(code {}),ctrl-a:execute(git add {}),ctrl-p:execute(git add --patch {}),ctrl-u:execute(git restore --staged {})"
+
+  git status --porcelain | awk -v pre="$(git rev-parse --show-toplevel)/" '{ if ($0 ~ "^[MAD?]  ") {print "\033[32m"pre$2"\033[0m"} else if ($0 ~ "^MM ") {print "\033[43;32m"pre$2"\033[0m"} else if ($1 == "M") {print "\033[33m"pre$2"\033[0m"} else if ($1 == "D") {print "\033[31m"$re$2"\033[0m"} else if ($1 == "??") {print "\033[35m"pre$2"\033[0m"} else {print $pre$2} }' \
+    | fzf -m --height 100% --bind $execute --preview $preview
 }
 
 # target check
@@ -157,10 +139,17 @@ target_cmd() {
 }
 
 # Auto load existing ssh-agent socket
-export SSH_AUTH_SOCK="/home/spu/.ssh/agent.sock"
+export SSH_AUTH_SOCK="/home/ste/.ssh/agent.sock"
 ssh-add -l 2>/dev/null >/dev/null
 if [ $? -ge 2 ] && [ -S $SSH_AUTH_SOCK ]; then
   pkill ssh-agent
-  rm -rf $SSH_AUTH_SOCK
+  rm -rf $SSH_AUTH_SOCK || true
   ssh-agent -s -a $SSH_AUTH_SOCK >/dev/null
 fi
+
+export LESSOPEN='| /usr/share/source-highlight/src-hilite-lesspipe.sh %s'
+export LESS=' -R '
+
+stty start undef
+
+export PATH="$PATH:/home/ste/.dotnet/"
