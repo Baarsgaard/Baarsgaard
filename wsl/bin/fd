@@ -1,0 +1,36 @@
+#!/usr/bin/bash
+
+preview="git diff $* --color=always -- {}"
+if [[ $* == *-a* ]]; then
+  preview="bat --color=always --style=changes,numbers {}"
+fi
+
+prefix="$(git rev-parse --show-toplevel)/"
+AWK='{
+    if ($0 ~ "^[MAD?]  ") {
+        print "\033[32m"pre$2"\033[0m"
+    } else if ($0 ~ "^MM ") {
+          print "\033[43;32m"pre$2"\033[0m"
+    } else if ($1 == "M") {
+        print "\033[33m"pre$2"\033[0m"
+    } else if ($1 == "D") {
+        print "\033[31m"$re$2"\033[0m"
+    } else if ($1 == "??") {
+        print "\033[35m"pre$2"\033[0m"
+    } else {
+        print $pre$2
+    }
+}'
+
+changefinder="git status --porcelain | awk -v pre='$prefix' '$AWK'"
+reloader="+reload($changefinder)"
+
+bash -c "$changefinder" | fzf -m \
+    --header='keybinds (ctrl+): a, u, p, c, s.' \
+    --bind "ctrl-c:execute(code {})" \
+    --bind='ctrl-s:toggle-preview' \
+    --bind "ctrl-a:execute(git add {})$reloader" \
+    --bind "ctrl-p:execute(git add --patch {})$reloader" \
+    --bind "ctrl-u:execute(git restore --staged {})$reloader" \
+    --preview-window 'wrap' \
+    --preview "$preview"
