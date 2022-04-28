@@ -66,32 +66,42 @@ verifyRuntime() {
 }
 
 getSecret() {
-  local VAULT_NAME=$1
-  local SECRET=$2
+  local SECRET=$1
 
-  az keyvault \
-    secret \
-    show \
+  az keyvault secret show \
     --vault-name "$VAULT_NAME" \
     --name "$SECRET" |
     jq '.value' -r
 }
 
 setSecret() {
-  local VAULT_NAME=$1
-  local SECRET=$2
-  local VALUE=$3
+  local SECRET=$1
+  local VALUE=$2
 
   log 'Writing/Updating Secret...'
 
-  az keyvault \
-    secret \
-    set \
+  az keyvault secret set \
     --vault-name "$VAULT_NAME" \
     --name "$SECRET" \
     --value "$VALUE" >/dev/null
 
   log 'Secret Set/Updated'
+}
+
+deleteSecret() {
+  local SECRET=$1
+
+  az keyvault secret delete \
+    --vault-name "$VAULT_NAME" \
+    --name "$SECRET"
+}
+
+recoverSecret() {
+  local SECRET=$1
+
+  az keyvault secret recover \
+    --vault-name "$VAULT_NAME" \
+    --name "$SECRET"
 }
 
 base64Encode() {
@@ -148,7 +158,7 @@ modify() {
   #
   azLogin
   log "Retrieving Secret from $VAULT_NAME..."
-  getSecret "$VAULT_NAME" "$1" >$FILE 2>/dev/null || true
+  getSecret "$1" >$FILE 2>/dev/null || true
 
   # Store copy of secret to check for changes
   local SECRET_CHECK="$(cat "$FILE")"
@@ -214,11 +224,13 @@ modify() {
   # Write secret to vault
   #
   echo "$1 Overwritten"
-  setSecret "$VAULT_NAME" "$1" "$SECRET"
+  setSecret "$1" "$SECRET"
 }
 
 main() {
   version='1.0.0'
+  recover=0
+  delete=0
   verbose=0
   base64encode=0
   urlencode=0
@@ -227,7 +239,7 @@ main() {
   # -o is for short options like -v
   # -l is for long options with double dash like --version
   # -a is for long options with single dash like -version
-  options=$(getopt -l "help,version,verbose,base64,urlencode,json,vault::,subscription::,tenant::" -o "hVbujv::s::t::" -a -q -- "$@")
+  options=$(getopt -l "help,version,verbose,base64,urlencode,json,vault::,subscription::,tenant::,recover,delete" -o "hVbujv::s::t::rd" -a -q -- "$@")
 
   # set --:
   # If no arguments follow this option, then the positional parameters are unset. Otherwise, the positional parameters
@@ -243,6 +255,12 @@ main() {
     --version)
       echo "$version"
       exit 0
+      ;;
+    -r | --recover)
+      recover=1
+      ;;
+    -d | --delete)
+      delete=1
       ;;
     -V | --verbose)
       verbose=1
@@ -277,6 +295,18 @@ main() {
   done
 
   verifyRuntime "$1"
+
+  if [ $recover -eq 1 ]; then
+    log "Recovering secret"
+    recoverSecret "$1"
+    exit 0
+  fi
+  if [ $delete -eq 1 ]; then
+    log "Deleting secret"
+    deleteSecret "$1"
+    exit 0
+  fi
+
   modify "$1"
 }
 
