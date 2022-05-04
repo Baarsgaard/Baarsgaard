@@ -17,22 +17,35 @@ log_error() {
 
 showHelp() {
   cat <<EOF
-Usage: ./set-secret.sh [-h|-u] <secret-name>
-Fetch, Modify, Write, Secrets to/from Azure keyvault
+Manipulate secrets in Azure vault.
+Usage: ./unvault.sh [action] [options] <secret-name>
 
- -h   -help       --help             Display this help.
-      -version    --version          Print current version of the script.
- -v   -verbose    --verbose          Print more progress log message
- -b   -base64     --base64           Base64 Decode secret from vault and encode before writing secret to the vault. (Relies on 'base64')
- -u   -urlencode  --urlencode        URL Decode secret from vault and encode before writing secret to the vault.
- -j   -json       --json             Expand and minify JSON secrets. (Relies on 'jq')
+<secret-name>   Required; Any secret in the key vault
 
+Actions:
+  modify   Default; Opens secret in default text editor.
+  create            Create a non-existent secret.
+  print             Skip opening the editor and print secret to stdout.
+  restore           Restores a soft-deleted secret.
+  delete            Deletes a secret. (Unless soft delete is enabled)
 
- -t   -tenant        --tenant           Tenant id [TENANT_ID]
- -s   -subscription  --subscription     Subscription id  [SUBSCRIPTION_ID]
- -v   -vault         --vault            Name of keyvault [VAULT_NAME]
+Options:
+ -h   -help          --help            Display this help.
+      -version       --version         Print current version of the script.
+ -V   -verbose       --verbose         Print more progress log message
+ -t   -tenant        --tenant          Tenant id [TENANT_ID]
+ -s   -subscription  --subscription    Subscription id  [SUBSCRIPTION_ID]
+ -v   -vault         --vault           Name of keyvault [VAULT_NAME]
+ -E   -editor        --editor
 
- <secret-name>                       Any secret in the selected key vault
+Encodings
+ -b   -base64        --base64          Base64 Decode secret from vault and encode before writing secret to the vault. (Relies on 'base64')
+ -u   -urlencode     --urlencode       URL Decode secret from vault and encode before writing secret to the vault.
+
+Formatters                             Adds file extension for editor syntax highlighting
+ -j   -json          --json            [json] Expand and minify JSON (Relies on 'jq')
+ -y   -yaml          --yaml            [yml]
+ -e   -extension     --extension       Custom file extension, will override
 
 EOF
 }
@@ -228,13 +241,30 @@ modify() {
 }
 
 main() {
-  version='1.0.0'
+  local version='1.0.0'
   recover=0
   delete=0
   verbose=0
   base64encode=0
   urlencode=0
   json=0
+
+  case $1 in
+  recover)
+    recover=1
+    ;;
+  delete)
+    delete=1
+    ;;
+  pipe)
+    shift
+    SUBSCRIPTION_ID="$1"
+    ;;
+  --)
+    shift
+    break
+    ;;
+  esac
 
   # -o is for short options like -v
   # -l is for long options with double dash like --version
