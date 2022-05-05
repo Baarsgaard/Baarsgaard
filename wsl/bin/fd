@@ -1,36 +1,26 @@
 #!/usr/bin/bash
 
-preview="git diff $* --color=always -- {}"
+add_prefix="echo '{}' | awk -v pre='$(git rev-parse --show-toplevel)/' '{print pre\$2}' | xargs"
+file_path='$(echo "{}" | awk -v pre="$(git rev-parse --show-toplevel)/" "{print pre$2}")'
+
+preview="$add_prefix git diff --color=always"
 if [[ $* == *-a* ]]; then
-  preview="bat --color=always --style=changes,numbers {}"
+  preview="batcat --color=always --style=changes,numbers $file_path"
 fi
 
-prefix="$(git rev-parse --show-toplevel)/"
-AWK='{
-    if ($0 ~ "^[MAD?]  ") {
-        print "\033[32m"pre$2"\033[0m"
-    } else if ($0 ~ "^MM ") {
-          print "\033[43;32m"pre$2"\033[0m"
-    } else if ($1 == "M") {
-        print "\033[33m"pre$2"\033[0m"
-    } else if ($1 == "D") {
-        print "\033[31m"$re$2"\033[0m"
-    } else if ($1 == "??") {
-        print "\033[35m"pre$2"\033[0m"
-    } else {
-        print $pre$2
-    }
-}'
-
-changefinder="git status --porcelain | awk -v pre='$prefix' '$AWK'"
+changefinder="git -c color.ui=always status -sb"
 reloader="+reload($changefinder)"
 
 bash -c "$changefinder" | fzf -m \
-    --header='keybinds (ctrl+): a, u, p, c, s.' \
-    --bind "ctrl-c:execute(code {})" \
+    --header 'keybinds (ctrl+): a, u, p, c, e, s.' \
+    --header-lines 1 \
+    --bind "ctrl-e:execute-silent($add_prefix code)" \
     --bind='ctrl-s:toggle-preview' \
-    --bind "ctrl-a:execute(git add {})$reloader" \
-    --bind "ctrl-p:execute(git add --patch {})$reloader" \
-    --bind "ctrl-u:execute(git restore --staged {})$reloader" \
+    --bind "ctrl-a:execute-silent($add_prefix git add)$reloader" \
+    --bind "ctrl-p:execute(git add --patch $file_path)$reloader" \
+    --bind "ctrl-c:execute(git commit)$reloader" \
+    --bind "ctrl-r:execute-silent($add_prefix git restore)$reloader" \
+    --bind "ctrl-u:execute-silent($add_prefix git restore --staged)$reloader" \
+    --bind "ctrl-l:preview(git log --oneline --decorate --graph --max-count=$FZF_PREVIEW_LINES)" \
     --preview-window 'wrap' \
     --preview "$preview"

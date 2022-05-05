@@ -62,13 +62,14 @@ alias ap='ansible-playbook'
 alias al='ansible-lint'
 alias ai='ansible-galaxy init'
 #alias tf='terraform'
-alias la='ls -A'
-alias ll='ls -al --file-type'
-alias l='ls -CF1'
+alias la='ls -A --group-directories-first'
+alias ll='ls -alh --group-directories-first --file-type'
+alias l='ls -CF1h --group-directories-first'
 alias grep='grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 # --line-number
+alias glr='git pull origin "$(git rev-parse --abbrev-ref origin/HEAD | cut -d/ -f 2-)" --rebase'
 alias gcm='git commit -m'
-alias explorer='explorer.exe'
+alias docker='podman'
 
 set_pass() {
   IFS= read -rs PASS < /dev/tty
@@ -103,18 +104,6 @@ search() {
 
 export FZF_DEFAULT_COMMAND="fd --type file --follow --color=always"
 export FZF_DEFAULT_OPTS="--ansi"
-
-fd() {
-  local preview="git diff $@ --color=always -- {}"
-  if [[ $* == *-a* ]]; then
-    preview="bat --color=always --style=changes,numbers {}"
-  fi
-  local prefix="$(git rev-parse --show-toplevel)/"
-  local execute="ctrl-c:execute(code {}),ctrl-a:execute(git add {}),ctrl-p:execute(git add --patch {}),ctrl-u:execute(git restore --staged {})"
-
-  git status --porcelain | awk -v pre="$(git rev-parse --show-toplevel)/" '{ if ($0 ~ "^[MAD?]  ") {print "\033[32m"pre$2"\033[0m"} else if ($0 ~ "^MM ") {print "\033[43;32m"pre$2"\033[0m"} else if ($1 == "M") {print "\033[33m"pre$2"\033[0m"} else if ($1 == "D") {print "\033[31m"$re$2"\033[0m"} else if ($1 == "??") {print "\033[35m"pre$2"\033[0m"} else {print $pre$2} }' \
-    | fzf -m --height 100% --bind $execute --preview $preview
-}
 
 # target check
 target_cmd() {

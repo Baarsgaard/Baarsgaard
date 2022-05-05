@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -e
-set -u
+set -eu
 set -o pipefail
 
 log() {
@@ -12,84 +11,178 @@ log() {
 
 log_error() {
   echo >&2 "$1"
-  exit "$2"
+  exit "${2:-1}"
 }
 
-showHelp() {
+show_help() {
   cat <<EOF
-Manipulate secrets in Azure vault.
-Usage: ./unvault.sh [action] [options] <secret-name>
+  Manipulate secrets in Azure vault.
+  Usage: ./unvault.sh [action] [options] <secret-name>
 
-<secret-name>   Required; Any secret in the key vault
+  <secret-name>   Required; Any secret in the key vault
 
-Actions:
-  modify   Default; Opens secret in default text editor.
-  create            Create a non-existent secret.
-  print             Skip opening the editor and print secret to stdout.
-  restore           Restores a soft-deleted secret.
-  delete            Deletes a secret. (Unless soft delete is enabled)
+  Actions:
+    modify   Default; Opens secret in default text editor.
+    create            Create a non-existent secret.
+    print             Skip opening the editor and print secret to stdout.
+    restore           Restores a soft-deleted secret.
+    delete            Deletes a secret. (Unless soft delete is enabled)
 
-Options:
- -h   -help          --help            Display this help.
-      -version       --version         Print current version of the script.
- -V   -verbose       --verbose         Print more progress log message
- -t   -tenant        --tenant          Tenant id [TENANT_ID]
- -s   -subscription  --subscription    Subscription id  [SUBSCRIPTION_ID]
- -v   -vault         --vault           Name of keyvault [VAULT_NAME]
- -E   -editor        --editor
+  Options:
+   -h    --help            Display this help.
+         --version         Print current version of the script.
+   -V    --verbose         Print more progress log message
+   -t    --tenant          Tenant id [TENANT_ID]
+   -s    --subscription    Subscription id  [SUBSCRIPTION_ID]
+   -v    --vault           Name of keyvault [VAULT_NAME]
+   -E    --editor
 
-Encodings
- -b   -base64        --base64          Base64 Decode secret from vault and encode before writing secret to the vault. (Relies on 'base64')
- -u   -urlencode     --urlencode       URL Decode secret from vault and encode before writing secret to the vault.
+  Encodings
+   -b   --base64          Base64 Decode secret from vault and encode before writing secret to the vault. (Uses 'base64')
+   -u   --urlencode       URL Decode secret from vault and encode before writing secret to the vault.
 
-Formatters                             Adds file extension for editor syntax highlighting
- -j   -json          --json            [json] Expand and minify JSON (Relies on 'jq')
- -y   -yaml          --yaml            [yml]
- -e   -extension     --extension       Custom file extension, will override
+  Formatters
+   -f   --format          [json, yaml] Expand and minify secret. Uses jq and yq
+   -e   --extension       Custom file extension [json, cs, yml], will override formatter, useful with EDITOR highlight settings
 
 EOF
 }
 
-verifyRuntime() {
+verify_runtime() {
   log "verifying environment and PATH"
 
   if [ -z "$1" ]; then
-    log_error "<secret name> is missing, provide a secret to fetch from key vault" 1
+    log_error "<secret name> is missing, provide a secret to fetch from key vault"
   fi
 
-  if [ -z "$TENANT_ID" ]; then
-    log_error "TENANT_ID is not set" 1
+  if [ -z "${TENANT_ID:=$ARM_TENANT_ID}" ]; then
+    log_error "TENANT_ID is not set"
   fi
 
-  if [ -z "$SUBSCRIPTION_ID" ]; then
-    log_error "SUBSCRIPTION_ID is not set" 1
+  if [ -z "${SUBSCRIPTION_ID:=$ARM_SUBSCRIPTION_ID}" ]; then
+    log_error "SUBSCRIPTION_ID is not set"
   fi
 
   if [ -z "$VAULT_NAME" ]; then
-    log_error "VAULT_NAME is not set" 1
+    log_error "VAULT_NAME is not set"
   fi
 
   if ! which az >/dev/null; then
-    log_error "Required package 'az' (azure cli) is missing in PATH" 1
+    log_error "Required package 'az' (azure cli) is missing in PATH"
   fi
 
   if ! which python3 >/dev/null; then
-    log_error "Required package 'python3' is missing in PATH" 1
+    log_error "Required package 'python3' is missing in PATH"
   fi
 }
 
-getSecret() {
-  local SECRET=$1
+base64_encode() {
+  if [[ $# == 0 ]]; then
+    base64 -
+  else
+    echo "$1" | base64 -
+  fi
+}
+base64_decode() {
+  if ! which base64 >/dev/null; then
+    log_error "Required package 'bsae64' is missing in PATH" 1
+  fi
+
+  if [[ $# == 0 ]]; then
+    base64 --decode -
+  else
+    echo "$1" | base64 --decode -
+  fi
+}
+
+url_encode() {
+  if [[ $# == 0 ]]; then
+    read -r string
+  else
+    string="$1"
+  fi
+  python3 -c "import urllib.parse, sys; print(urllib.parse.quote_plus(sys.argv[1]))" "$string"
+}
+url_decode() {
+  if [[ $# == 0 ]]; then
+    read -r string
+  else
+    string="$1"
+  fi
+  python3 -c "import urllib.parse, sys; print(urllib.parse.unquote(sys.argv[1]))" "$string"
+}
+
+json_display() {
+  if ! which jq >/dev/null; then
+    log_error "Required package 'jq' is missing in PATH" 1
+  fi
+
+  if [[ $# == 0 ]]; then
+    jq -rM .
+  else
+    echo "$1" | jq -rM .
+  fi
+
+  if [ $? -eq 4 ]; then
+    log_error "Secret is not valid JSON. Exiting" 4
+  fi
+}
+# shellcheck disable=SC2120
+json_minify() {
+  if [[ $# == 0 ]]; then
+    jq -rcM .
+  else
+    echo "$1" | jq -rcM .
+  fi
+}
+
+yaml_display() {
+  if ! which yq >/dev/null; then
+    log_error "Required package 'yq' is missing in PATH" 1
+  fi
+  if ! which jq >/dev/null; then
+    log_error "Required package 'jq' is missing in PATH" 1
+  fi
+
+  if [[ $# == 0 ]]; then
+    yq --no-colors .
+  else
+    echo "$1" | yq --no-colors .
+  fi
+
+  if [ $? -eq 4 ]; then
+    log_error "Secret is not valid JSON. Exiting" 4
+  fi
+}
+yaml_minify() {
+  if [[ $# == 0 ]]; then
+    yq --no-colors --output-format json | json_minify
+  else
+    echo "$1" | yq --no-colors --output-format json | json_minify
+  fi
+}
+
+az_login() {
+  if ! az account show >/dev/null; then
+    log 'Logging in...'
+    az login --tenant="$AZURE_TENANT_ID"
+  fi
+
+  log 'Setting account...'
+  az account set --subscription="$AZURE_SUBSCRIPTION_ID" >/dev/null
+}
+
+get_secret() {
+  local SECRET="$1"
 
   az keyvault secret show \
     --vault-name "$VAULT_NAME" \
     --name "$SECRET" |
-    jq '.value' -r
+    jq -r '.value'
 }
-
-setSecret() {
-  local SECRET=$1
-  local VALUE=$2
+set_secret() {
+  local SECRET="$1"
+  local VALUE="$2"
 
   log 'Writing/Updating Secret...'
 
@@ -100,176 +193,108 @@ setSecret() {
 
   log 'Secret Set/Updated'
 }
-
-deleteSecret() {
+delete_secret() {
   local SECRET=$1
 
+  log "Deleting secret"
   az keyvault secret delete \
     --vault-name "$VAULT_NAME" \
     --name "$SECRET"
 }
-
-recoverSecret() {
+recover_secret() {
   local SECRET=$1
 
+  log "Recovering secret"
   az keyvault secret recover \
     --vault-name "$VAULT_NAME" \
     --name "$SECRET"
 }
+modify_secret() {
+  local FILE=".secret${extensionPriority:=$extension}"
 
-base64Encode() {
-  base64 -
-}
-
-base64Decode() {
-  if ! which base64 >/dev/null; then
-    log_error "Required package 'bsae64' is missing in PATH" 1
-  fi
-  base64 --decode -
-}
-
-urlEncode() {
-  read -r string
-  python3 -c "import urllib.parse, sys; print(urllib.parse.quote_plus(sys.argv[1]))" "$string"
-}
-
-urlDecode() {
-  read -r string
-  python3 -c "import urllib.parse, sys; print(urllib.parse.unquote(sys.argv[1]))" "$string"
-}
-
-jsonExpand() {
-  if ! which jq >/dev/null; then
-    log_error "Required package 'jq' is missing in PATH" 1
-  fi
-  jq -rM .
-
-  if [ $? -eq 4 ]; then
-    log_error "Secret is not valid JSON. Exiting" 4
-  fi
-}
-
-jsonMinify() {
-  jq -r tostring
-}
-
-azLogin() {
-  if ! az account show >/dev/null; then
-    log 'Logging in...'
-    az login --tenant="$AZURE_TENANT_ID"
-  fi
-
-  log 'Setting account...'
-  az account set --subscription="$AZURE_SUBSCRIPTION_ID" >/dev/null
-}
-
-modify() {
-  local FILE=".secret"
-
-  #
-  # Get secret
-  #
-  azLogin
   log "Retrieving Secret from $VAULT_NAME..."
-  getSecret "$1" >$FILE 2>/dev/null || true
+  local secret
+  secret=$(get_secret "$1")
 
-  # Store copy of secret to check for changes
-  local SECRET_CHECK="$(cat "$FILE")"
+  # Carbon Copy. Check for changes after opening editor
+  local secret_check="$secret"
 
-  #
   # Decode/format secret
-  #
-  # Base64 DECODE
-  if [ "$base64encode" -eq 1 ]; then
-    local secret="$(cat $FILE | base64Decode)"
-    echo "$secret" >"$FILE"
+  if [ -n "$encoder" ]; then
+    local secret="$("$encoder"'_decode' "$secret")"
   fi
-  # URL DECODE
-  if [ "$urlencode" -eq 1 ]; then
-    local secret="$(cat $FILE | urlDecode)"
-    echo "$secret" >"$FILE"
-  fi
-  # JSON expand
-  if [ "$json" -eq 1 ]; then
-    local secret="$(cat $FILE | jsonExpand)"
-    echo "$secret" >"$FILE"
+  if [ -n "$formatter" ]; then
+    local secret="$("$formatter"'_display' "$secret")"
   fi
 
-  #
+  trap 'rm -f $FILE' EXIT
+  echo "$secret" >"$FILE"
+
   # Open editor
-  #
   log 'Opening default Editor'
   ${EDITOR:-/usr/bin/editor} "$FILE"
 
   if [ ! -s "$FILE" ]; then
-    rm "$FILE"
     log_error "$1 Empty. Exiting without writing changes" 4
   fi
 
   local SECRET="$(cat "$FILE")"
-  rm -f "$FILE"
 
-  #
-  # Encode/clean secret
-  #
-  # Minify JSON
-  if [ "$json" -eq 1 ]; then
-    SECRET="$(echo "$SECRET" | jsonMinify)"
-  fi
-  # URL ENCODE
-  if [ "$urlencode" -eq 1 ]; then
-    SECRET="$(echo "$SECRET" | urlEncode)"
-  fi
-  # Base64 ENCODE
-  if [ "$base64encode" -eq 1 ]; then
-    SECRET="$(echo "$SECRET" | base64Encode)"
+  # Encode/minify secret
+  if [ -n "$formatter" ] && [ "$formatter" ]; then
+    secret="$("$formatter"'_minify' "$secret")"
   fi
 
-  #
-  # Exit without writing if secret did not change
-  #
-  if [ "$SECRET" == "$SECRET_CHECK" ]; then
+  if [ -n "$encoder" ]; then
+    secret="$("$encoder"'_encode' "$secret")"
+  fi
+
+  # Exit early if secret did not change
+  if [ "$secret" == "$secret_check" ]; then
     echo "$1 Unchanged"
     exit 0
   fi
 
-  #
   # Write secret to vault
-  #
+  set_secret "$1" "$secret"
   echo "$1 Overwritten"
-  setSecret "$1" "$SECRET"
+}
+create_secret() {
+  local SECRET="$1"
+  local VALUE="$2"
+
+  log 'Creating Secret...'
+
+  az keyvault secret set \
+    --vault-name "$VAULT_NAME" \
+    --name "$SECRET" \
+    --value "$VALUE" >/dev/null
+
+  log 'Secret Set/Updated'
+}
+print_secret() {
+  log "Retrieving Secret from $VAULT_NAME..."
+  local secret
+  secret="$(get_secret "$1")"
+
+  # Decode/format secret
+  if [ -n "$encoder" ]; then
+    secret="$("$encoder"'Decode' "$secret")"
+  fi
+  if [ -n "$formatter" ]; then
+    secret="$("$formatter"'Display' "$secret")"
+  fi
+
+  echo "$secret"
 }
 
-main() {
-  local version='1.0.0'
-  recover=0
-  delete=0
-  verbose=0
-  base64encode=0
-  urlencode=0
-  json=0
-
-  case $1 in
-  recover)
-    recover=1
-    ;;
-  delete)
-    delete=1
-    ;;
-  pipe)
-    shift
-    SUBSCRIPTION_ID="$1"
-    ;;
-  --)
-    shift
-    break
-    ;;
-  esac
-
+parse_options() {
   # -o is for short options like -v
   # -l is for long options with double dash like --version
   # -a is for long options with single dash like -version
-  options=$(getopt -l "help,version,verbose,base64,urlencode,json,vault::,subscription::,tenant::,recover,delete" -o "hVbujv::s::t::rd" -a -q -- "$@")
+  long="help,version,verbose,tenant::,subscription::,vault::,editor::,base64,urlencode,format::,extension::"
+  short="hVt::s::v::E::bu"
+  options="$(getopt -l "$long" -o "$short" -a -q -- "$@")"
 
   # set --:
   # If no arguments follow this option, then the positional parameters are unset. Otherwise, the positional parameters
@@ -279,30 +304,46 @@ main() {
   while true; do
     case $1 in
     -h | --help)
-      showHelp
+      show_help
       exit 0
       ;;
     --version)
       echo "$version"
       exit 0
       ;;
-    -r | --recover)
-      recover=1
-      ;;
-    -d | --delete)
-      delete=1
-      ;;
     -V | --verbose)
       verbose=1
       ;;
     -b | --base64)
-      base64encode=1
+      encoder='base64'
       ;;
     -u | --urlencode)
-      urlencode=1
+      encoder='url'
       ;;
-    -j | --json)
-      json=1
+    -f | --format)
+      shift
+      case $1 in
+      json)
+        formatter="$1"
+        extension=".$1"
+        ;;
+      ya?ml)
+        formatter="$1"
+        extension=".yml"
+        ;;
+      *)
+        log_error "formatter unknown: $1"
+        exit 1
+        ;;
+      esac
+      ;;
+    -E | --editor)
+      shift
+      EDITOR="$1"
+      ;;
+    -e | --extension)
+      shift
+      extensionPriority=".$1"
       ;;
     -v | --vault)
       shift
@@ -323,21 +364,68 @@ main() {
     esac
     shift
   done
-
-  verifyRuntime "$1"
-
-  if [ $recover -eq 1 ]; then
-    log "Recovering secret"
-    recoverSecret "$1"
-    exit 0
-  fi
-  if [ $delete -eq 1 ]; then
-    log "Deleting secret"
-    deleteSecret "$1"
-    exit 0
-  fi
-
-  modify "$1"
 }
 
-main "$@"
+main() {
+  local version='1.1.0'
+  verbose=0
+  encoder=''
+  formatter=''
+  extension=''
+
+  # shellcheck disable=SC2068
+  parse_options $@
+
+  case $1 in
+  h | help)
+    show_help
+    ;;
+  v | version)
+    echo "$version"
+    ;;
+  r | recover)
+    shift
+    verify_runtime "$1"
+    az_login
+    recover_secret "$1"
+    ;;
+  d | delete)
+    shift
+    verify_runtime "$1"
+    az_login
+    delete_secret "$1"
+    ;;
+  c | create)
+    shift
+    verify_runtime "$1"
+    az_login
+    create_secret "$1"
+    ;;
+  p | print)
+    shift
+    verify_runtime "$1"
+    az_login
+    print_secret "$1"
+    ;;
+  m | modify)
+    shift
+    verify_runtime "$1"
+    az_login
+    modify_secret "$1"
+    ;;
+  *)
+    # Modify is the default action
+    az_login
+    verify_runtime "$1"
+    modify_secret "$1"
+    ;;
+  esac
+}
+
+# Allow script to receive secret/value from STDIN
+if ! test -t 0; then
+  input=$(cat -)
+fi
+
+# shellcheck disable=2068
+main $@ "${input:-}"
