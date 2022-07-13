@@ -165,11 +165,11 @@ yaml_minify() {
 az_login() {
   if ! az account show >/dev/null; then
     log 'Logging in...'
-    az login --tenant="$AZURE_TENANT_ID"
+    az login --tenant="$TENANT_ID"
   fi
 
   log 'Setting account...'
-  az account set --subscription="$AZURE_SUBSCRIPTION_ID" >/dev/null
+  az account set --subscription="$SUBSCRIPTION_ID" >/dev/null
 }
 
 get_secret() {
@@ -210,8 +210,6 @@ recover_secret() {
     --name "$SECRET"
 }
 modify_secret() {
-  local FILE=".secret${extensionPriority:=$extension}"
-
   log "Retrieving Secret from $VAULT_NAME..."
   local secret
   secret=$(get_secret "$1")
@@ -227,6 +225,7 @@ modify_secret() {
     local secret="$("$formatter"'_display' "$secret")"
   fi
 
+  local FILE=$(mktemp --suffix="${extensionPriority:=$extension}" '.secret.XXXXXXXX')
   trap 'rm -f $FILE' EXIT
   echo "$secret" >"$FILE"
 
