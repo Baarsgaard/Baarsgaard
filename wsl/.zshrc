@@ -41,7 +41,7 @@ plugins=(
   fzf-zsh-plugin
   git
   wd
-  terraform
+#  terraform
   zsh-autosuggestions
 )
 
@@ -51,11 +51,16 @@ source $ZSH/oh-my-zsh.sh
 # User configuration
 #
 
+# Completions
+autoload -U +X bashcompinit && bashcompinit
+#compctl -K _gh gh
+#source /etc/bash_completion.d/azure-cli
+#complete -o nospace -C /usr/bin/terraform terraform
+
 # Custom Prompt
 PROMPT='%{$fg[cyan]%}%c%{$reset_color%} $(git_prompt_info)'
 PROMPT+="
 %(?:%{$fg[green]%}➜ :%{$fg[red]%}➜ )%{$reset_color%}"
-
 
 # custom alias
 alias ap='ansible-playbook'
@@ -69,10 +74,12 @@ alias grep='grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 # --line-number
 alias glr='git pull origin "$(git rev-parse --abbrev-ref origin/HEAD | cut -d/ -f 2-)" --rebase'
 alias gcm='git commit -m'
-alias docker='podman'
+alias grp='git remote update origin --prune'
+alias glp="git branch --merged next | grep -v '^[ *]*next$' | xargs git branch -d"
+#alias docker='podman'
 
 set_pass() {
-  IFS= read -rs PASS < /dev/tty
+  IFS= read -rs PASS </dev/tty
 }
 
 _wd_path() {
@@ -93,23 +100,47 @@ cw() {
   _wd_path 'code' "${1:-.}"
 }
 
-ew() {
-  _wd_path 'explorer.exe' "${1:-.}"
-}
+if uname -r | grep -wEq 'windows|microsoft'; then
+  ew() {
+    _wd_path 'explorer.exe' "${1:-.}"
+  }
 
-search() {
-  QUERY="$(echo "$@" | tr ' ' '+')"
-  powershell.exe -c "start('https://google.com/search?q=$QUERY')"
+  search() {
+    QUERY="$(echo "$@" | tr ' ' '+')"
+    powershell.exe -c "start('https://google.com/search?q=$QUERY')"
+  }
+fi
+
+load() {
+  local path="/home/ste/.env."
+  case $1 in
+  prod*)
+    . "${path}prod.sh"
+    export TF_VAR_short_env='prod'
+    ;;
+  prep*)
+    . "${path}prep.sh"
+    export TF_VAR_short_env='prep'
+    ;;
+  xp*)
+    . "${path}$1.sh"
+    export TF_VAR_short_env="$1"
+    ;;
+  *)
+    . "${path}stg.sh"
+    export TF_VAR_short_env='stag'
+    ;;
+  esac
 }
 
 export FZF_DEFAULT_COMMAND="fd --type file --follow --color=always"
 export FZF_DEFAULT_OPTS="--ansi"
 
 # target check
-target_cmd() {
-  case $1 in
-  hc)
-    CMD="docker ps -a --format 'table {{.ID}}\t{{.Names}}\t{{.Status}}' --filter health=unhealthy"
+web_cmd() {
+  case $2 in
+  restart)
+    CMD="sudo systemctl restart impero_web"
     ;;
 
   mem)
@@ -121,19 +152,22 @@ target_cmd() {
     ;;
   esac
 
-  for i in {1..4}; do
-    echo "target $i";
-    ssh target$i "$CMD";
-  done;
+  for i in {0..1}; do
+    local target="$1-web-0$i"
+    echo "$target"
+    ssh "$target" "$CMD"
+  done
 }
 
 # Auto load existing ssh-agent socket
-export SSH_AUTH_SOCK="/home/ste/.ssh/agent.sock"
+export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
 ssh-add -l 2>/dev/null >/dev/null
-if [ $? -ge 2 ] && [ -S $SSH_AUTH_SOCK ]; then
+if [ $? -ge 2 ] && [ -S "$SSH_AUTH_SOCK" ]; then
   pkill ssh-agent
-  rm -rf $SSH_AUTH_SOCK || true
-  ssh-agent -s -a $SSH_AUTH_SOCK >/dev/null
+  rm -rf "$SSH_AUTH_SOCK" || true
+
+  ssh-agent -s -a "$SSH_AUTH_SOCK" >/dev/null
+  #ssh-add "$HOME/.ssh/commit_rsa"
 fi
 
 export LESSOPEN='| /usr/share/source-highlight/src-hilite-lesspipe.sh %s'
@@ -141,4 +175,5 @@ export LESS=' -R '
 
 stty start undef
 
-export PATH="$PATH:/home/ste/.dotnet/"
+export PATH="$PATH:$HOME/.dotnet/"
+

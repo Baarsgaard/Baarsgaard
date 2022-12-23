@@ -5,7 +5,7 @@ file_path='$(echo "{}" | awk -v pre="$(git rev-parse --show-toplevel)/" "{print 
 
 preview="$add_prefix git diff --color=always"
 if [[ $* == *-a* ]]; then
-  preview="batcat --color=always --style=changes,numbers $file_path"
+  preview="$add_prefix batcat --color=always --style=changes,numbers"
 fi
 
 changefinder="git -c color.ui=always status -sb"

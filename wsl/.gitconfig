@@ -9,7 +9,31 @@
 	autosetuprebase = always
 [pull]
 	rebase = true
+[color]
+        diff = auto
+        branch = auto
+        interactive = auto
+	status = auto
 [core]
 	autocrlf = input
 	fileMode = false
 	editor = vim
+        pager = delta
+[user]
+	name = ste
+	email = steff.bpoulsen@gmail.com
+        signingkey = ssh-rsa qwerty
+[interactive]
+        diffFilter = delta --color-only
+[delta]
+	features = decorations
+[rebase]
+	autosquash = true
+[commit]
+	gpgsign = true
+[gpg]
+	format = ssh
+[gpg "ssh"]
+        allowedSignersFile = ~/.ssh/commit_rsa
+[tag]
+        gpgsign = true
