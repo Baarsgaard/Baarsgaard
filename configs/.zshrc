@@ -8,6 +8,7 @@ export ZSH="/home/ste/.oh-my-zsh"
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
+#ZSH_THEME="agnoster"
 ZSH_THEME="robbyrussell"
 
 # Uncomment the following line to automatically update without prompting.
@@ -41,21 +42,19 @@ plugins=(
   fzf-zsh-plugin
   git
   wd
-#  terraform
+  terraform
   zsh-autosuggestions
 )
 
 source $ZSH/oh-my-zsh.sh
+compctl -K _gh gh
 
 #
 # User configuration
 #
 
-# Completions
 autoload -U +X bashcompinit && bashcompinit
-#compctl -K _gh gh
-#source /etc/bash_completion.d/azure-cli
-#complete -o nospace -C /usr/bin/terraform terraform
+source /etc/bash_completion.d/azure-cli
 
 # Custom Prompt
 PROMPT='%{$fg[cyan]%}%c%{$reset_color%} $(git_prompt_info)'
@@ -63,20 +62,20 @@ PROMPT+="
 %(?:%{$fg[green]%}➜ :%{$fg[red]%}➜ )%{$reset_color%}"
 
 # custom alias
+alias xtask='cargo xtask'
 alias ap='ansible-playbook'
 alias al='ansible-lint'
 alias ai='ansible-galaxy init'
-#alias tf='terraform'
 alias la='ls -A --group-directories-first'
 alias ll='ls -alh --group-directories-first --file-type'
 alias l='ls -CF1h --group-directories-first'
 alias grep='grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 # --line-number
-alias glr='git pull origin "$(git rev-parse --abbrev-ref origin/HEAD | cut -d/ -f 2-)" --rebase'
+alias grbh='git rebase -i "${"$(git rev-parse --abbrev-ref origin/HEAD)"##*/}"'
+alias glogh='git log --oneline --decorate --graph "${"$(git rev-parse --abbrev-ref origin/HEAD)"##*/}.."'
 alias gcm='git commit -m'
 alias grp='git remote update origin --prune'
-alias glp="git branch --merged next | grep -v '^[ *]*next$' | xargs git branch -d"
-#alias docker='podman'
+alias glp='git branch --merged "${"$(git rev-parse --abbrev-ref origin/HEAD)"##*/}" | grep -v "${"$(git rev-parse --abbrev-ref origin/HEAD)"##*/}" | xargs git branch -d'
 
 set_pass() {
   IFS= read -rs PASS </dev/tty
@@ -99,17 +98,17 @@ _wd_path() {
 cw() {
   _wd_path 'code' "${1:-.}"
 }
+ew() {
+  _wd_path 'explorer.exe' "${1:-.}"
+}
+hw() {
+  _wd_path 'hx' "${1:-.}"
+}
 
-if uname -r | grep -wEq 'windows|microsoft'; then
-  ew() {
-    _wd_path 'explorer.exe' "${1:-.}"
-  }
-
-  search() {
-    QUERY="$(echo "$@" | tr ' ' '+')"
-    powershell.exe -c "start('https://google.com/search?q=$QUERY')"
-  }
-fi
+search() {
+  QUERY="$(echo "$@" | tr ' ' '+')"
+  powershell.exe -c "start('https://google.com/search?q=$QUERY')"
+}
 
 load() {
   local path="/home/ste/.env."
@@ -132,9 +131,6 @@ load() {
     ;;
   esac
 }
-
-export FZF_DEFAULT_COMMAND="fd --type file --follow --color=always"
-export FZF_DEFAULT_OPTS="--ansi"
 
 # target check
 web_cmd() {
@@ -167,13 +163,15 @@ if [ $? -ge 2 ] && [ -S "$SSH_AUTH_SOCK" ]; then
   rm -rf "$SSH_AUTH_SOCK" || true
 
   ssh-agent -s -a "$SSH_AUTH_SOCK" >/dev/null
-  #ssh-add "$HOME/.ssh/commit_rsa"
+  ssh-add "$HOME/.ssh/commit_rsa"
 fi
 
+export EDITOR=hx
+export FZF_DEFAULT_COMMAND="fd --type file --follow --color=always"
+export FZF_DEFAULT_OPTS="--ansi"
 export LESSOPEN='| /usr/share/source-highlight/src-hilite-lesspipe.sh %s'
 export LESS=' -R '
-
-stty start undef
-
 export PATH="$PATH:$HOME/.dotnet/"
-
+export COLORTERM=truecolor
+stty start undef
+complete -o nospace -C /usr/bin/terraform terraform

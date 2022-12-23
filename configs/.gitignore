@@ -14,8 +14,3 @@
 !.ssh
 !.ssh/config
 !.ssh/known_hosts
-SBP*
-sbp*
-/.gitignore
-todo*
-certificate_imported_from_the_jumpbox.pfx
