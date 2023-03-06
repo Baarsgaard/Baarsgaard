@@ -1,0 +1,27 @@
+theme = "solarized_dark"
+
+[editor]
+line-number = "relative"
+mouse = false
+shell = ["bash", "-c"]
+auto-format = true
+
+  [editor.cursor-shape]
+  insert = "bar"
+  normal = "block"
+  select = "underline"
+  
+  [editor.statusline]
+  center = ["file-name"]
+  
+  [editor.lsp]
+  display-messages = true
+  
+  [editor.indent-guides]
+  render = true
+  character = "╎" #"▏", "┆", "┊", "⸽"
+  skip-levels = 0
+
+  [editor.file-picker]
+  hidden = false
+  

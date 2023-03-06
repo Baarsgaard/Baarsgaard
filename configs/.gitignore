@@ -1,5 +1,5 @@
 # Ignore by default
-*
+# *
 
 # To keep
 !.bashrc
