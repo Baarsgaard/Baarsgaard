@@ -11,9 +11,6 @@ auto-format = true
   normal = "block"
   select = "underline"
   
-  [editor.statusline]
-  center = ["file-name"]
-  
   [editor.lsp]
   display-messages = true
   

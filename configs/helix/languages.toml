@@ -2,43 +2,44 @@ use-grammars = { only = [ "rust", "toml", "yaml", "hcl", "tfvars", "sql", "sshcl
 
 [[language]]
 name = "rust"
+  [language.config]
+  checkOnSave = { command = "clippy" }
 
-[language.config]
-checkOnSave = { command = "clippy" }
+  [language.debugger]
+  command = "codelldb"
+  name = "codelldb"
+  port-arg = "--port {}"
+  transport = "tcp"
 
-[language.debugger]
-command = "codelldb"
-name = "codelldb"
-port-arg = "--port {}"
-transport = "tcp"
+  [[language.debugger.templates]]
+  name = "binary"
+  request = "launch"
 
-[[language.debugger.templates]]
-name = "binary"
-request = "launch"
+  [[language.debugger.templates.completion]]
+  completion = "filename"
+  name = "binary"
 
-[[language.debugger.templates.completion]]
-completion = "filename"
-name = "binary"
-
-[language.debugger.templates.args]
-program = "{0}"
-runInTerminal = true
+  [language.debugger.templates.args]
+  program = "{0}"
+  runInTerminal = true
 
 [[language]]
 name = "hcl"
-config = { "rootModules" = ["deploy/terraform/production","deploy/terraform/preproduction","deploy/terraform/staging","deploy/terraform/xp1"] }
+config = { rootModules = [
+  "deploy/terraform/production",
+  "deploy/terraform/preproduction",
+  "deploy/terraform/staging",
+  "deploy/terraform/xp1"
+]}
 
 [[language]]
 name = "tfvars"
-
-  [[language.config]]
-  "rootModules" = [
-    "deploy/terraform/production", 
-    "deploy/terraform/preproduction", 
-    "deploy/terraform/staging", 
-    "deploy/terraform/xp1"
-  ] 
-
+config = { rootModules = [
+  "deploy/terraform/production",
+  "deploy/terraform/preproduction",
+  "deploy/terraform/staging",
+  "deploy/terraform/xp1"
+]}
 [[language]]
 name = "yaml"
   [[language.config.yaml]]
