@@ -1,4 +1,4 @@
-theme = "solarized_dark"
+theme = "onedark"
 
 [editor]
 line-number = "relative"
@@ -13,6 +13,8 @@ auto-format = true
   
   [editor.lsp]
   display-messages = true
+  display-inlay-hints = true
+  snippets = true
   
   [editor.indent-guides]
   render = true
