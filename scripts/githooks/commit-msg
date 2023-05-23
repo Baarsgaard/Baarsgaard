@@ -1,0 +1,78 @@
+#!/bin/bash
+
+set -o pipefail
+set -eu
+
+error() {
+  local red='\033[0;31m'
+  local no_color='\033[0m'
+
+  >&2 echo -e "\n${red}ERROR - $1${no_color}"
+  for msg in "${@:2}"; do
+    >&2 echo -e "${red}        $msg${no_color}"
+  done
+  >&2 echo -e "${red}        --no-verify to skip pre-commit checks.\n${no_color}";
+  >&2 echo "Git Guide: https://github.com/raunow/raunow");
+
+  exit 1;
+}
+
+main() {
+  local COMMIT_MSG_FILE=$1
+  local COMMIT_MSG="$(cat "$COMMIT_MSG_FILE")"
+
+  local BRANCH="$(git rev-parse --abbrev-ref 'HEAD')"
+  local TICKET_ID="$(echo "$BRANCH" | cut -d'/' -f2)"
+
+  local TICKET_EXPR='sc-[0-9]+'
+  local TICKET_FULL_EXPR="^\[$TICKET_EXPR\]"
+
+  # Allow rebasing
+  if [[ $BRANCH == "HEAD" ]]; then
+    exit 0
+  fi
+
+  # Uppercase first letter in commit message
+  if [[ "${COMMIT_MSG:0:1}" == [a-z] ]]; then
+    # Check to avoid 'bad substitution' error.
+    local COMMIT_MSG="${COMMIT_MSG^}"
+    echo "$COMMIT_MSG" > "$COMMIT_MSG_FILE"
+  fi
+
+  # Error if branch is missing Shortcut ID
+  if ! echo "$TICKET_ID" | grep -Eq "^$TICKET_EXPR$"; then
+    local yellow='\033[0;33m'
+    local blue='\033[0;36m'
+    error "Branch name does not conform to guideline" \
+      "${yellow}git checkout -b $(echo "$BRANCH" | cut -d'/' -f1)/sc-XXXXX/$(echo "$BRANCH" | cut -d'/' -f2)" \
+      "${blue}Shortcut: [Shortcut](https://app.shortcut.com/raunow/stories/new?template_id=xxx-xxx-xxx-xx")
+  fi
+
+  # Prefix message if branch has Shortcut ID and commit message is missing the ID
+  if ! echo "$COMMIT_MSG" | grep -Eq "$TICKET_FULL_EXPR"; then
+    COMMIT_MSG="[$TICKET_ID] $COMMIT_MSG"
+    echo "$COMMIT_MSG" > "$COMMIT_MSG_FILE"
+  fi
+
+  # Error if Shortcut ID does not match branch
+  if ! echo "$COMMIT_MSG" | grep -q "^\[${TICKET_ID}\]"; then
+    error "Shortcut ticket ID in message does not match [${TICKET_ID}] in the branch name!"
+  fi
+
+  # Check if space is missing
+  if ! echo "$COMMIT_MSG" | grep -Eq "$TICKET_FULL_EXPR "; then
+    error "Missing space between [${TICKET_ID}] message."
+  fi
+
+  # Check the first letter is capitalized
+  if ! echo "$COMMIT_MSG" | grep -Eq "$TICKET_FULL_EXPR [A-Z]"; then
+    error "First letter is not capitalized in: \"${COMMIT_MSG}\""
+  fi
+
+  # Last check to verify
+  if ! echo "$COMMIT_MSG" | grep -Eq "$TICKET_FULL_EXPR [A-Z].*"; then
+    error ""
+  fi
+}
+
+main "$@"
