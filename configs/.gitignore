@@ -1,16 +1,3 @@
-# Ignore by default
-# *
-
-# To keep
-!.bashrc
-!.zprofile
-!.profile
-!.vimrc
-!.warprc
-!.zshrc
-!.gitignore
-!.gitconfig
-
-!.ssh
-!.ssh/config
-!.ssh/known_hosts
+.helix
+.taplo.toml
+tmp**
