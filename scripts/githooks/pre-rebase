@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -o pipefail
+set -eu
+
+main() {
+  local _TARGET_BRANCH=$1
+  local CURRENT_BRANCH=${2:-}
+	if [[ -z "$CURRENT_BRANCH" ]]; then
+    CURRENT_BRANCH="$(git rev-parse --abbrev-ref 'HEAD')"
+  fi
+
+  local default_branch
+  default_branch=$(git rev-parse --abbrev-ref 'origin/HEAD')
+
+  local protected_branches=("master main $default_branch")
+
+  if [[ ${protected_branches[*]} =~ $CURRENT_BRANCH ]]; then
+    local red='\033[0;31m'
+    local no_color='\033[0m'
+
+    >&2 echo -e "\n${red}ERROR - NEVER REBASE $CURRENT_BRANCH${no_color}"
+    >&2 echo -e "${red}        $CURRENT_BRANCH is the default branch of the repository and should never be altered directly ${no_color}\n"
+
+    exit 1
+  fi
+}
+
+
+main "$@"
