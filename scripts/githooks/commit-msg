@@ -32,6 +32,11 @@ main() {
     exit 0
   fi
 
+  # Allow using --squash=<commit> or --fixup=[(amend|reword):]<commit>
+  if [[ $COMMIT_MSG =~ ^squash!.*|^fixup!.*|^amend!.* ]]; then
+    exit 0
+  fi
+
   # Uppercase first letter in commit message
   if [[ "${COMMIT_MSG:0:1}" == [a-z] ]]; then
     # Check to avoid 'bad substitution' error.
