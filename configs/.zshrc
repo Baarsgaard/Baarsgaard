@@ -173,5 +173,4 @@ export LESSOPEN='| /usr/share/source-highlight/src-hilite-lesspipe.sh %s'
 export LESS=' -R '
 export PATH="$PATH:$HOME/.dotnet/"
 export COLORTERM=truecolor
-stty start undef
-complete -o nospace -C /usr/bin/terraform terraform
+export MANPAGER="sh -c 'col -bx | bat -l man -p'"
