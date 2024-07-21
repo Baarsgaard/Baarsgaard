@@ -1,14 +1,7 @@
 { config, pkgs, ... }:
 
 {
-  nixpkgs = {
-    overlays = [
-      (import (builtins.fetchTarball {
-        url = "https://github.com/helix-editor/helix/archive/master.tar.gz";
-      }))
-    ];
-    config.allowUnfree = true;
-  };
+  nixpkgs.config.allowUnfree = true;
 
   home.username = "ste";
   home.homeDirectory = "/home/${config.home.username}";
@@ -215,7 +208,6 @@
 
   programs.helix = {
     enable = true;
-    package = pkgs.helix;
     defaultEditor = true;
     settings = {
       theme = "onedark";
