@@ -1,12 +1,12 @@
 #!/bin/bash
 
-set -euo pipefail
-read -s -p "Password: " PW
-
 # Nix
 curl -fsSL https://nixos.org/nix/install | sh -s -- --daemon --yes
-if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
-  . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+
+nix_src_path='/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
+if [ -e "$nix_src_path" ]; then
+  # shellcheck disable=SC1090
+  . "$nix_src_path"
 fi
 nix --version
 
@@ -22,6 +22,8 @@ home-manager build
 home-manager switch
 nix-collect-garbage
 
-echo $PW | sudo echo 'tmp'>/dev/null
 which zsh | sudo tee -a /etc/shells
-echo $PW | chsh -s "$(which zsh)"
+chsh -s "$(which zsh)"
+
+echo 'Source nix variables using below command or login again'
+echo ". '$nix_src_path'"
